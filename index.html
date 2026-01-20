@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronos Protocol: Story Edition</title>
+    <style>
+        /* --- CORE VISUALS --- */
+        body { margin: 0; overflow: hidden; background-color: #008080; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; }
+        
+        /* --- 1. INITIAL CLICK OVERLAY (Unlocks Audio) --- */
+        #init-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: black; z-index: 200000; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; color: white;
+            font-family: 'Courier New', monospace; font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* --- 2. STORY SCREEN (Centered) --- */
+        #story-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: black; color: #ccc; font-family: 'Courier New', monospace;
+            padding: 20px; z-index: 150000; display: none; /* Hidden initially */
+            flex-direction: column; align-items: center; justify-content: center; /* CENTERED */
+            text-align: center;
+        }
+
+        /* --- 3. SYSTEM READY OVERLAY --- */
+        #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: black; z-index: 100000; display: none; /* Hidden initially */
+            flex-direction: column; align-items: center; justify-content: center; color: lime;
+            font-family: 'Courier New', monospace; font-size: 20px;
+            text-align: center; cursor: pointer;
+        }
+
+        /* --- 4. BOOT SCREEN (Left Aligned) --- */
+        #boot-screen { 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: black; color: #ccc; font-family: 'Courier New', monospace; 
+            padding: 20px; z-index: 99999; display: flex; flex-direction: column; 
+            align-items: flex-start; overflow: hidden;
+        }
+        
+        /* --- ANIMATIONS --- */
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* --- CURSOR (WHITE UNDERSCORE) --- */
+        .typing-line::after {
+            content: '_'; color: #ccc; 
+            animation: blink 1s step-end infinite;
+            margin-left: 2px; font-weight: bold;
+        }
+
+        /* --- SCREENS --- */
+        .overlay-screen { position:fixed; top:0; left:0; width:100vw; height:100vh; background:black; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'Courier New'; z-index:100000; display:none; text-align: center; }
+        #victory { color:#00ff00; } 
+        #game-over { color: red; background: #1a0000; }
+
+        /* --- DESKTOP --- */
+        #desktop { width: 100vw; height: calc(100vh - 40px); padding: 10px; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; position: relative; }
+        #bg-timer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 15vw; color: rgba(0, 0, 0, 0.15); pointer-events: none; z-index: 0; font-family: 'Courier New', Courier, monospace; font-weight: bold; }
+
+        /* --- HUD --- */
+        #mission-hud { position: absolute; top: 10px; right: 10px; width: 280px; background: rgba(0, 0, 0, 0.85); border: 2px solid #00ff00; color: #00ff00; font-family: 'Courier New', monospace; padding: 10px; z-index: 5000; display: none; box-shadow: 0 0 10px #00ff00; }
+        .mission-header { font-weight: bold; border-bottom: 1px dashed #00ff00; margin-bottom: 5px; }
+        #achievement-toast { position: absolute; bottom: 60px; right: -350px; width: 300px; background: #333; border-left: 5px solid #ffd700; color: white; font-family: Tahoma, sans-serif; padding: 15px; box-shadow: -2px 2px 10px rgba(0,0,0,0.5); z-index: 9999; transition: right 0.5s ease-in-out; display: flex; align-items: center; }
+        .trophy-icon { font-size: 30px; margin-right: 15px; }
+
+        /* --- ICONS & WINDOWS --- */
+        .icon { width: 80px; height: 80px; margin: 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; cursor: pointer; color: white; text-shadow: 1px 1px 1px black; z-index: 10; }
+        .icon:hover { background-color: rgba(0, 0, 128, 0.3); } .icon.selected { background-color: #000080; outline: 1px dotted yellow; }
+        .icon-emoji { font-size: 40px; margin-bottom: 5px; } .icon-label { font-size: 12px; text-align: center; line-height: 1.2; }
+
+        .window { position: absolute; background: #c0c0c0; border: 2px solid; border-color: #fff #000 #000 #fff; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); display: flex; flex-direction: column; font-family: Tahoma, sans-serif; font-size: 11px; }
+        .title-bar { background: #000080; color: white; padding: 4px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: default; }
+        .close-btn { background: #c0c0c0; border: 1px solid; border-color: #fff #000 #000 #fff; color: black; width: 16px; height: 16px; line-height: 14px; text-align: center; cursor: pointer; font-size: 10px; }
+        .window-body { flex-grow: 1; padding: 10px; overflow: auto; background: white; border: 2px inset #c0c0c0; margin: 5px; color: black; }
+
+        /* --- APP STYLES --- */
+        .file-list-item { padding: 5px; cursor: pointer; display: flex; align-items: center; border-bottom: 1px dotted #eee; } .file-list-item:hover { background: #000080; color: white; }
+        .win95-input { border: 2px inset #c0c0c0; background: white; font-family: 'Courier New', monospace; padding: 3px; width: 200px; outline: none; }
+        .win95-btn { border: 2px solid; border-color: #fff #000 #000 #fff; background: #c0c0c0; padding: 2px 10px; font-family: Tahoma, sans-serif; font-size: 11px; cursor: pointer; margin-top: 10px; }
+        .win95-btn:active { border-color: #000 #fff #fff #000; }
+        .terminal-window { background-color: black; color: #c0c0c0; font-family: 'Courier New', monospace; padding: 5px; height: 100%; overflow-y: auto; font-size: 14px; }
+        .cmd-line { display: flex; } .cmd-prompt { margin-right: 5px; } .cmd-input { background: transparent; border: none; color: #c0c0c0; font-family: 'Courier New', monospace; flex-grow: 1; outline: none; font-size: 14px; }
+        .decoder-bg { background: #000; color: #0f0; font-family: 'Courier New'; padding: 10px; height: 100%; display: flex; flex-direction: column; align-items: center; }
+        .uplink-bg { background: #001a33; color: cyan; padding: 10px; height: 100%; font-family: 'Courier New'; display: flex; flex-direction: column; }
+        .satellite-dish { width: 100px; height: 100px; border: 2px solid cyan; border-radius: 50%; margin: 10px auto; position: relative; }
+        .satellite-dish::after { content: '+'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; }
+        .signal-bar { width: 100%; height: 20px; border: 1px solid cyan; margin-top: 10px; position: relative; }
+        .signal-fill { height: 100%; background: lime; width: 0%; transition: width 0.2s; }
+        .slider-row { display: flex; justify-content: space-between; margin: 5px 0; align-items: center; }
+
+        #taskbar { position: absolute; bottom: 0; width: 100%; height: 40px; background: #c0c0c0; border-top: 2px solid #fff; display: flex; align-items: center; padding: 0 5px; z-index: 1000; }
+        .start-btn { padding: 5px 15px; font-weight: bold; display: flex; align-items: center; border: 2px solid; border-color: #fff #000 #000 #fff; background: #c0c0c0; cursor: pointer; margin-right: 10px; }
+        .start-btn:active { border-color: #000 #fff #fff #000; }
+        #clippy { position: absolute; bottom: 50px; right: 20px; width: 200px; z-index: 9999; display: none; }
+        #clippy-bubble { background: #ffffe0; border: 1px solid black; border-radius: 5px; padding: 10px; margin-bottom: 10px; font-size: 12px; box-shadow: 2px 2px 2px rgba(0,0,0,0.2); }
+        #clippy-avatar { font-size: 50px; text-align: right; cursor: pointer; animation: bounce 2s infinite; }
+    </style>
+</head>
+<body>
+
+    <div id="init-overlay">
+        <div class="blink">&gt; CLICK TO POWER ON TERMINAL &lt;</div>
+    </div>
+
+    <div id="story-screen">
+        <div id="story-container"></div>
+    </div>
+
+    <div id="start-overlay">
+        <div style="font-size: 30px; margin-bottom: 20px; color: white;">SYSTEM READY</div>
+        <div class="blink">&gt; CLICK TO INITIALIZE BIOS &lt;</div>
+    </div>
+
+    <div id="boot-screen">
+        <div id="boot-text-container"></div>
+    </div>
+
+    <div id="victory" class="overlay-screen">
+        <h1 style = "font-size: 40px;">Congratulations</h1>
+        <h2 style="font-size: 40px;">SIGNAL LOCKED</h2>
+        <p>EMP Charge Detonated. Satellite Offline.</p>
+        <br><h2 style="color:white">MISSION ACCOMPLISHED</h2><br><br>
+        <button class="win95-btn" onclick="location.reload()">Reboot System</button>
+    </div>
+
+    <div id="game-over" class="overlay-screen">
+        <h1 style="font-size: 60px;">CONNECTION LOST</h1>
+        <p>The signal was lost. The Failsafe activated.</p>
+        <p>Timeline Erased.</p>
+        <br><button class="win95-btn" onclick="location.reload()">TRY AGAIN</button>
+    </div>
+
+    <div id="mission-hud">
+        <div class="mission-header">CURRENT OBJECTIVE</div>
+        <div id="mission-desc">Initializing...</div>
+    </div>
+
+    <div id="achievement-toast">
+        <div class="trophy-icon">🏆</div>
+        <div>
+            <div id="ach-title" style="font-weight:bold; color:#ffd700;">Achievement</div>
+            <div id="ach-desc" style="font-size:12px;">Unlocked</div>
+        </div>
+    </div>
+
+    <div id="desktop"><div id="bg-timer">60:00</div></div>
+    
+    <div id="clippy">
+        <div id="clippy-bubble">It looks like Dr. Thorne is missing! <br>Check <b>"My Documents"</b> to start looking for clues.</div>
+        <div id="clippy-avatar" onclick="clippyHint()">📎</div>
+    </div>
+
+    <div id="taskbar"><div class="start-btn">🏁 Start</div><div style="flex-grow:1"></div><div style="background:inset; border:1px solid gray; padding:2px 10px; background:#e0e0e0;">16:01 PM</div></div>
+
+<script>
+    // --- 0. AUDIO ENGINE ---
+    const keySound = new Audio('typeSound.wav');
+    keySound.loop = true; 
+
+    // --- 1. STORY & BOOT LOGIC ---
+    const storyLines = [
+        "CONNECTION ESTABLISHED...",
+        "YEAR: 1995",
+        "LOCATION: UNDISCLOSED",
+        "",
+        "Dr. Aris Thorne has vanished.",
+        "The Chronos Protocol has been activated.",
+        "A rogue satellite is targeting major cities.",
+        "",
+        "You are the only one with remote access.",
+        "Your orders are clear:",
+        "",
+        "FIND THE CODES.",
+        "ALIGN THE SATELLITE.",
+        "STOP THE SIGNAL.",
+        "",
+        "REMEMBER: 'chronos' is the ultimate key"
+    ];
+
+    const bootLines = [
+        "CyberWorks BIOS v5.02",
+        "Checking RAM... OK",
+        "Loading Chronos Protocol Interface...",
+        "Mounting Drive C:...",
+        "",
+        "Initializing..."
+    ];
+
+    async function runTypewriter(lines, containerId, delayBeforeNext = 400) {
+        const container = document.getElementById(containerId);
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+
+        // Wait small buffer for audio to engage
+        await wait(100);
+
+        for (let line of lines) {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'typing-line'; // Adds cursor
+            
+            // For story, we center. For boot, we don't (CSS handles boot left align)
+            // lineDiv is block level, so it takes width. CSS handles alignment of text inside.
+            
+            container.appendChild(lineDiv);
+            
+            // START AUDIO
+            keySound.currentTime = 0; 
+            keySound.play().catch(e=>{});
+
+            for (let i = 0; i < line.length; i++) {
+                lineDiv.innerHTML += line.charAt(i);
+                await wait(Math.random() * 40 + 30);
+            }
+            
+            // PAUSE AUDIO
+            keySound.pause();
+            
+            await wait(delayBeforeNext);
+            lineDiv.classList.remove('typing-line');
+        }
+    }
+
+    // Step 1: Click to Power On (Unlocks Audio)
+    document.getElementById('init-overlay').addEventListener('click', async function() {
+        this.style.display = 'none';
+        
+        // Step 2: Play Story
+        const storyScreen = document.getElementById('story-screen');
+        storyScreen.style.display = 'flex';
+        
+        await runTypewriter(storyLines, 'story-container', 800);
+        
+        // Wait then move to Step 3
+        setTimeout(() => {
+            storyScreen.style.display = 'none';
+            document.getElementById('start-overlay').style.display = 'flex';
+        }, 2000);
+    });
+
+    // Step 3: Click to Boot System
+    document.getElementById('start-overlay').addEventListener('click', async function() {
+        this.style.display = 'none';
+        
+        // Step 4: Play BIOS Boot
+        await runTypewriter(bootLines, 'boot-text-container', 400);
+        
+        // Step 5: Start Game
+        setTimeout(() => {
+            document.getElementById('boot-screen').style.display = 'none';
+            startGame();
+        }, 1000);
+    });
+
+
+    // --- 2. GAME STATE ---
+    let systemLogsUnlocked = false; 
+    let level3Complete = false;
+    let level4Complete = false;
+    let gameActive = false;
+    let timeLeft = 60 * 60; 
+    let timerInterval;
+    let emailReceived = false; // Flag to prevent duplicate emails
+
+    function startGame() {
+        gameActive = true;
+        document.getElementById('clippy').style.display = 'block';
+        document.getElementById('mission-hud').style.display = 'block';
+        updateMission(0);
+        
+        createIcon("My Computer", "💻", "root");
+        createIcon("My Documents", "📁", "C:\\My Documents");
+        createIcon("Outlook Mail", "📧", "email");
+        createIcon("Recycle Bin", "🗑️", "C:\\Recycle Bin");
+        createIcon("MS-DOS Prompt", "📟", "cmd"); 
+        createIcon("SatUplink", "📡", "uplink");
+
+        // Start Timer
+        const display = document.getElementById('bg-timer');
+        timerInterval = setInterval(() => {
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('game-over').style.display = 'flex';
+                gameActive = false;
+                return;
+            }
+            timeLeft--;
+            let m = Math.floor(timeLeft / 60);
+            let s = timeLeft % 60;
+            display.innerText = `${m<10?'0'+m:m}:${s<10?'0'+s:s}`;
+            if (timeLeft < 60) display.style.color = "rgba(255, 0, 0, 0.3)";
+        }, 1000);
+    }
+
+    const missions = [
+        "Investigate docs for clue.",
+        "Access 'System Logs'.",
+        "Identify suspicious IP in logs.",
+        "'ping' & 'telnet' IP.",
+        "Hack server.",
+        "Decrypt coords.",
+        "Align Satellite Dish & Fire EMP."
+    ];
+
+    function updateMission(idx) {
+        document.getElementById('mission-desc').innerText = missions[idx];
+    }
+
+    function triggerAchievement(title, desc) {
+        const t = document.getElementById('achievement-toast');
+        document.getElementById('ach-title').innerText = title;
+        document.getElementById('ach-desc').innerText = desc;
+        t.style.right = "20px";
+        setTimeout(() => { t.style.right = "-350px"; }, 4000);
+    }
+
+    const files = {
+        "C:\\": { "My Documents": { type: "folder" }, "Recycle Bin": { type: "folder" }, "System Logs": { type: "folder" } },
+        "C:\\My Documents": {
+            "personal_log_MAR95.txt": { type: "txt", content: "March 14\nI found it. A hidden module sending data to IP 216.58.192.142. If I don't contact Lena, the failsafe activates." },
+            "Chronos_Project_Notes.doc": { type: "txt", content: "PROJECT CHRONOS\n\nREMINDER: Remote server access requires the project name as the password." },
+            "encrypted_note.txt": { type: "txt", content: "CODE: 68.17.221.101 -> Beacon -> 92.168.1.1\nIntegris is a shell company." }
+        },
+        "C:\\System Logs": {
+            "net_activity.log": { type: "txt", content: "WARNING: Unauthorized outbound traffic detected.\nTarget: 216.58.192.142\nProtocol: HIDDEN" },
+            "config.sys": { type: "txt", content: "DEVICE=C:\\WINDOWS\\HIMEM.SYS\nBUS_FREQ=1420\n[DRIVER CORRUPT]" }
+        },
+        "C:\\Recycle Bin": { "DECRYPTor_v1.exe": { type: "app", app: "decoder" } }
+    };
+
+    // Modified initial emails - Removed David Miller
+    const emails = [ { from: "Mac Jensen", subject: "LAUNCH DEADLINE", body: "Aris, where are you? Investors are angry. We launch in 3 days!" } ];
+
+    function createIcon(label, emoji, path) {
+        const d = document.getElementById('desktop');
+        const i = document.createElement('div'); i.className = 'icon';
+        i.innerHTML = `<div class="icon-emoji">${emoji}</div><div class="icon-label">${label}</div>`;
+        i.onclick = () => { document.querySelectorAll('.icon').forEach(x => x.classList.remove('selected')); i.classList.add('selected'); };
+        i.ondblclick = () => { 
+            if(!gameActive)return; 
+            if(path==="root")openFolder("C:\\"); 
+            else if(path==="email")openEmailClient(); 
+            else if(path==="cmd")openTerminal(); 
+            else if(path==="uplink") {
+                if(level4Complete) openUplink();
+                else alert("ACCESS DENIED\n\nTarget coordinates missing.\nPlease decrypt the launch codes first.");
+            }
+            else openFolder(path); 
+        };
+        d.appendChild(i);
+    }
+
+    let zIndex = 100;
+    function createWindow(title, content, width="400px") {
+        if(!gameActive) return;
+        const w = document.createElement('div'); w.className = 'window';
+        w.style.left = (50+(zIndex%10)*10)+'px'; w.style.top = (50+(zIndex%10)*10)+'px';
+        w.style.width = width; w.style.height = '300px'; w.style.zIndex = zIndex++;
+        const h = document.createElement('div'); h.className = 'title-bar';
+        h.innerHTML = `<span>${title}</span><div class="close-btn" onclick="this.closest('.window').remove()">X</div>`;
+        let drag = false, offX = 0, offY = 0;
+        h.onmousedown = (e) => { drag = true; w.style.zIndex = zIndex++; const r = w.getBoundingClientRect(); offX = e.clientX - r.left; offY = e.clientY - r.top; window.addEventListener('mousemove', mv); window.addEventListener('mouseup', st); };
+        function mv(e) { if(drag) { w.style.left = (e.clientX - offX) + 'px'; w.style.top = (e.clientY - offY) + 'px'; } }
+        function st() { drag = false; window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', st); }
+        w.appendChild(h);
+        const b = document.createElement('div'); b.className = 'window-body'; b.appendChild(content); w.appendChild(b);
+        document.getElementById('desktop').appendChild(w);
+    }
+
+    function openFolder(path) {
+        if (path === "C:\\System Logs" && !systemLogsUnlocked) {
+            createPasswordWindow(() => { 
+                systemLogsUnlocked = true; 
+                triggerAchievement("HACKER", "System Logs Unlocked"); 
+                updateMission(2); 
+                openFolder(path); 
+            });
+            return; 
+        }
+        if(path === "C:\\My Documents" && document.getElementById('mission-desc').innerText === missions[0]) updateMission(1);
+
+        const div = document.createElement('div'); const data = files[path];
+        if (!data) { alert("Error: Folder not found."); return; }
+        for (let f in data) {
+            const fd = data[f]; const item = document.createElement('div'); item.className = 'file-list-item';
+            let ico = fd.type === "folder" ? "📁" : (fd.type === "app" ? "⚙️" : "📄");
+            item.innerHTML = `<span style="font-size:20px; margin-right:10px">${ico}</span> ${f}`;
+            item.ondblclick = () => {
+                let tp = (path === "C:\\") ? path + f : path + "\\" + f;
+                if (files[tp]) openFolder(tp);
+                else if (fd.type === "folder") alert("Access Denied.");
+                else if (fd.type === "app") { if(fd.app === "decoder") openDecoder(); }
+                else { 
+                    openTextFile(f, fd.content); 
+                    if(f==="net_activity.log") {
+                        updateMission(3);
+                        if (!emailReceived) {
+                            emailReceived = true;
+                            emails.push({ from: "David Miller", subject: "Network Anomaly", body: "Dr. Thorne, I found a ghost IP on the network. 216.58.192.142." });
+                            document.querySelector('#clippy-bubble').innerHTML = "<b>NEW EMAIL!</b><br>David found something interesting.";
+                            // Play notification sound if desired (reusing type sound for feedback)
+                            keySound.currentTime = 0; 
+                            keySound.play().catch(e=>{});
+                            setTimeout(() => keySound.pause(), 500); 
+                        }
+                    }
+                }
+            };
+            div.appendChild(item);
+        }
+        createWindow(path, div);
+    }
+
+    function openTextFile(t, c) { const p = document.createElement('pre'); p.innerText = c; createWindow(t, p); }
+    function createPasswordWindow(cb) {
+        const d = document.createElement('div'); d.innerHTML = `<div style="text-align:center; padding:10px;">Enter Password:<br><input type="password" class="win95-input" id="p"><br><button class="win95-btn" id="b">Unlock</button></div>`;
+        createWindow("Security", d, "250px");
+        d.querySelector('#b').onclick = () => { if(d.querySelector('#p').value === "68.17.221.101") { d.closest('.window').remove(); cb(); } else alert("Access Denied"); };
+    }
+
+    function openTerminal() {
+        const c = document.createElement('div'); c.className = 'terminal-window'; 
+        let state = "local"; 
+        let pingDone = false; // LOCK: Ping required
+
+        function pr(t) { const d = document.createElement('div'); d.innerText = t; c.insertBefore(d, c.lastElementChild); }
+        function inp(p="C:\\>") {
+            const w = document.createElement('div'); w.className = 'cmd-line';
+            let t = state === "remote_pass" ? "password" : "text";
+            w.innerHTML = `<div class="cmd-prompt">${p}</div><input type="${t}" class="cmd-input" autofocus>`;
+            c.appendChild(w); const i = w.querySelector('input'); i.focus(); c.onclick = ()=>i.focus(); c.scrollTop = c.scrollHeight;
+            i.onkeydown = (e) => { if(e.key === "Enter") { i.disabled=true; proc(i.value.trim()); }};
+        }
+        function proc(cmd) {
+            const args = cmd.split(' '); const main = args[0].toLowerCase();
+            
+            if (state === "remote_pass") { 
+                if (main === "chronos") { 
+                    pr("ACCESS GRANTED."); state = "remote"; 
+                    triggerAchievement("BLACK HAT", "Server Hacked"); 
+                    updateMission(5); 
+                    inp("ADMIN@INTEGRIS:/>"); 
+                } else { pr("DENIED."); state = "local"; inp(); } 
+                return; 
+            }
+            if (state === "remote_user") { 
+                if (cmd === "") { // Prevent empty password submission
+                    // Re-enable input if it was disabled by 'enter' key
+                    const inputs = c.querySelectorAll('input');
+                    if (inputs.length > 0) inputs[inputs.length - 1].disabled = false;
+                    inp("Ultimate Key: "); // Re-prompt
+                    return; 
+                }
+                state = "remote_pass"; 
+                // Pass the entered command as the potential key check
+                if (cmd.toLowerCase() === "chronos") {
+                     pr("ACCESS GRANTED."); state = "remote"; 
+                     triggerAchievement("BLACK HAT", "Server Hacked"); 
+                     updateMission(5); 
+                     inp("ADMIN@INTEGRIS:/>"); 
+                } else {
+                     pr("DENIED."); state = "local"; inp(); 
+                }
+                return; 
+            }
+            if (state === "remote") {
+                if (main === "abort") {
+                    pr("INITIATING ABORT..."); setTimeout(() => { pr("ERROR: FAILSAFE TRIGGERED."); pr("DOWNLOADING 'fail_coords.enc'..."); setTimeout(() => { pr("DOWNLOAD COMPLETE. CHECK MY DOCUMENTS."); files["C:\\My Documents"]["fail_coords.enc"] = { type: "txt", content: "ENCRYPTED BINARY DATA. NEEDS DECODER." }; emails.push({from: "Unknown", subject: "HELP", body: "The failsafe triggered. I hid the DECODER in the Recycle Bin. The key is the Bus Frequency in config.sys."}); document.querySelector('#clippy-bubble').innerHTML = "<b>NEW EMAIL!</b><br>Something went wrong. Check your inbox."; level3Complete = true; state = "local"; updateMission(5); inp(); }, 2000); }, 1000);
+                } else if (main === "exit") { state = "local"; inp(); } else { pr("Available: ABORT, EXIT"); inp("ADMIN@INTEGRIS:/>"); } return;
+            }
+
+            // Local Commands
+            if (main === "ping" && args[1] === "216.58.192.142") { 
+                pr("Pinging 216.58.192.142..."); 
+                setTimeout(() => { 
+                    pr("Reply received. PORT 23 (TELNET) OPEN."); 
+                    pingDone = true; 
+                    inp(); 
+                }, 1000); 
+            }
+            else if (main === "telnet" && args[1] === "216.58.192.142") { 
+                if (!pingDone) {
+                    pr("Connect failed: Host unknown. Try PING first.");
+                    inp();
+                    return;
+                }
+                pr("Connecting..."); 
+                setTimeout(() => { state = "remote_user"; updateMission(4); inp("Ultimate Key: "); }, 1000); 
+            }
+            else if (main === "help") { pr("CMDS: PING, TELNET, EXIT"); inp(); } 
+            else { inp(); }
+        }
+        pr("MS-DOS Prompt"); inp(); createWindow("MS-DOS", c);
+    }
+
+    function openDecoder() {
+        if (!level3Complete) { alert("Error: No Encrypted Source File Found."); return; }
+        const c = document.createElement('div'); c.className = 'decoder-bg';
+        c.innerHTML = `<div>DECRYPTOR v1.0</div><hr style="width:100%; border-color:#0f0"><div id="dec-status">LOADED: fail_coords.enc</div><br><div>ENTER HARDWARE FREQUENCY KEY:</div><input type="text" style="background:black; color:#0f0; border:1px solid #0f0; outline:none; font-family:inherit;" id="dec-input"><div id="dec-out" style="margin-top:20px; color:white;"></div>`;
+        createWindow("DECRYPTOR", c);
+        const i = c.querySelector('#dec-input'); i.focus();
+        i.onkeydown = (e) => { if(e.key === "Enter") { if(i.value === "1420") { c.querySelector('#dec-out').innerText = "DECRYPTING..."; setTimeout(() => { c.querySelector('#dec-out').innerText = "TARGET: SAT-9\nAZIMUTH: 210\nELEVATION: 45"; level4Complete = true; triggerAchievement("CRYPTOGRAPHER", "Codes Decrypted"); updateMission(6); alert("COORDINATES ACQUIRED. USE SATELLITE UPLINK."); }, 1500); } else { c.querySelector('#dec-out').innerText = "INVALID KEY."; } } };
+    }
+
+    function openUplink() {
+        const c = document.createElement('div'); c.className = 'uplink-bg';
+        c.innerHTML = `<div style="text-align:center">SATELLITE UPLINK v2.0</div><div class="satellite-dish" id="dish"></div><div class="signal-bar"><div class="signal-fill" id="sig-fill"></div></div><div style="text-align:center" id="sig-text">SIGNAL: 0%</div><br><div class="slider-row"><span>AZIMUTH</span><input type="range" min="0" max="360" value="0" id="az"> <span id="az-val">0</span></div><div class="slider-row"><span>ELEVATION</span><input type="range" min="0" max="90" value="0" id="el"> <span id="el-val">0</span></div><br><button class="win95-btn" id="fire-btn" disabled>BROADCAST EMP</button>`;
+        createWindow("SatUplink", c);
+        const az = c.querySelector('#az'); const el = c.querySelector('#el'); const f = c.querySelector('#sig-fill'); const t = c.querySelector('#sig-text'); const b = c.querySelector('#fire-btn');
+        function up() {
+            c.querySelector('#az-val').innerText = az.value; c.querySelector('#el-val').innerText = el.value;
+            let dAz = Math.abs(az.value - 210); let dEl = Math.abs(el.value - 45); let sig = Math.max(0, 100 - (dAz + dEl * 2));
+            f.style.width = sig + "%"; t.innerText = "SIGNAL: " + Math.floor(sig) + "%";
+            if (sig > 95) { f.style.background = "red"; t.innerText = "TARGET LOCKED"; t.style.color = "red"; t.style.fontWeight = "bold"; b.disabled = false; } else { f.style.background = "lime"; b.disabled = true; }
+        }
+        az.oninput = up; el.oninput = up;
+        b.onclick = () => { clearInterval(timerInterval); triggerAchievement("SAVIOR", "World Saved"); document.getElementById('victory').style.display = 'flex'; };
+    }
+
+    function openEmailClient() {
+        const d = document.createElement('div'); d.innerHTML = "<b>Inbox</b><hr>";
+        const v = document.createElement('div'); v.className = 'email-content'; v.innerHTML = "<i>Select an email...</i>";
+        emails.forEach(m => { const r = document.createElement('div'); r.className = 'email-row'; r.innerHTML = `✉️ ${m.subject}`; r.onclick = () => v.innerHTML = `<b>From:</b> ${m.from}<br><b>Subject:</b> ${m.subject}<hr>${m.body}`; d.appendChild(r); });
+        d.appendChild(v); createWindow("Outlook", d);
+    }
+    const hints = ["Password is an IP in 'encrypted_note.txt'", "Ping the IP in 'net_activity.log'", "Telnet to the IP (Port 23)", "Server pass is project name", "L4: Decoder is in Trash", "L4: Key is in config.sys", "Don't forget to abort the link"];
+    function clippyHint() { document.getElementById('clippy-bubble').innerText = hints[Math.floor(Math.random()*hints.length)]; }
+</script>
+</body>
+</html>
