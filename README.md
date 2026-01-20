@@ -33,7 +33,7 @@ Experience a fully functional retro OS interface where you:
 
 ##  Quick Start
 
-1. Save code as `chronos-protocol.html`
+1. Save code as `index.html`
 2. (Optional) Add `typeSound.wav` in same directory for typing sounds
 3. Open in browser
 4. Click to power on → Watch story → Click to boot → Play!
