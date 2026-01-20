@@ -179,8 +179,7 @@
         "FIND THE CODES.",
         "ALIGN THE SATELLITE.",
         "STOP THE SIGNAL.",
-        "",
-        "REMEMBER: 'chronos' is the ultimate key"
+        ""
     ];
 
     const bootLines = [
@@ -489,7 +488,7 @@
                     return;
                 }
                 pr("Connecting..."); 
-                setTimeout(() => { state = "remote_user"; updateMission(4); inp("Ultimate Key: "); }, 1000); 
+                setTimeout(() => { state = "remote_user"; updateMission(4); inp("Password: "); }, 1000); 
             }
             else if (main === "help") { pr("CMDS: PING, TELNET, EXIT"); inp(); } 
             else { inp(); }
@@ -531,4 +530,5 @@
     function clippyHint() { document.getElementById('clippy-bubble').innerText = hints[Math.floor(Math.random()*hints.length)]; }
 </script>
 </body>
+
 </html>
